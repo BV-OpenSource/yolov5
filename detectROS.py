@@ -111,7 +111,7 @@ def run(
         # Wait for gstreamer package
         rospy.loginfo("Waiting for GStreamer package...")
         try:
-            rospy.wait_for_message("camera/state", std_msgs.msg.String, 5)
+            rospy.wait_for_message("gstreamer/live", std_msgs.msg.Empty, 5)
         except:
             rospy.logwarn("It was not possible to publish "+str(UDPport)+" as UDP port to GStreamer package.")
         startGST.publish(portMsg)
