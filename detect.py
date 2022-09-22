@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
 Run inference on images, videos, directories, streams, etc.
@@ -79,7 +80,7 @@ def run(
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
     is_file = Path(source).suffix[1:] in (IMG_FORMATS + VID_FORMATS)
-    is_url = source.lower().startswith(('rtsp://', 'rtmp://', 'http://', 'https://'))
+    is_url = source.lower().startswith(('rtsp://', 'rtmp://', 'http://', 'https://', 'udp://'))
     webcam = source.isnumeric() or source.endswith('.txt') or (is_url and not is_file)
     if is_url and is_file:
         source = check_file(source)  # download
@@ -151,6 +152,7 @@ def run(
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(im.shape[2:], det[:, :4], im0.shape).round()
 
+                # [top, left, bottom, right, prob, id]
                 # Print results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
@@ -241,7 +243,7 @@ def parse_opt():
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
     parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
     parser.add_argument('--dnn', action='store_true', help='use OpenCV DNN for ONNX inference')
-    opt = parser.parse_args()
+    opt = parser.parse_known_args()[0]
     opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
     print_args(vars(opt))
     return opt

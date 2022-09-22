@@ -315,6 +315,7 @@ class LoadStreams:
         self.mode = 'stream'
         self.img_size = img_size
         self.stride = stride
+        self.imShowAvailable = check_imshow()
 
         if os.path.isfile(sources):
             with open(sources) as f:
@@ -337,7 +338,13 @@ class LoadStreams:
             if s == 0:
                 assert not is_colab(), '--source 0 webcam unsupported on Colab. Rerun command in a local environment.'
                 assert not is_kaggle(), '--source 0 webcam unsupported on Kaggle. Rerun command in a local environment.'
-            cap = cv2.VideoCapture(s)
+
+            isUDP, port = self.isUDP(s)
+            if isUDP:
+                LOGGER.info("Video from UDP://@:"+str(port))
+                cap = cv2.VideoCapture('udpsrc port=' + str(port) + ' ! application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, payload=96 ! rtph264depay ! h264parse ! queue ! h264parse ! video/x-h264 ! avdec_h264 ! videoconvert ! appsink sync=false', cv2.CAP_GSTREAMER)
+            else:
+                cap = cv2.VideoCapture(s)
             assert cap.isOpened(), f'{st}Failed to open {s}'
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -349,7 +356,7 @@ class LoadStreams:
             self.threads[i] = Thread(target=self.update, args=([i, cap, s]), daemon=True)
             LOGGER.info(f"{st} Success ({self.frames[i]} frames {w}x{h} at {self.fps[i]:.2f} FPS)")
             self.threads[i].start()
-        LOGGER.info('')  # newline
+        LOGGER.info('Sources processed')  # newline
 
         # check for common shapes
         s = np.stack([letterbox(x, self.img_size, stride=self.stride, auto=self.auto)[0].shape for x in self.imgs])
@@ -374,13 +381,21 @@ class LoadStreams:
                     cap.open(stream)  # re-open stream if signal was lost
             time.sleep(0.0)  # wait time
 
+    def isUDP(self, source):
+        isIt = False
+        port = 0
+        if urlparse(source).scheme == "udp":
+            port = urlparse(source).port
+            isIt = True
+        return isIt, port
+
     def __iter__(self):
         self.count = -1
         return self
 
     def __next__(self):
         self.count += 1
-        if not all(x.is_alive() for x in self.threads) or cv2.waitKey(1) == ord('q'):  # q to quit
+        if not all(x.is_alive() for x in self.threads) or (self.imShowAvailable and cv2.waitKey(1) == ord('q')):  # q to quit
             cv2.destroyAllWindows()
             raise StopIteration
 
