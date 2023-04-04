@@ -1,17 +1,17 @@
 # Repo-specific GitIgnore ----------------------------------------------------------------------------------------------
-*.jpg
-*.jpeg
-*.png
-*.bmp
-*.tif
-*.tiff
-*.heic
-*.JPG
-*.JPEG
-*.PNG
-*.BMP
-*.TIF
-*.TIFF
+**.jpg
+**.jpeg
+**.png
+**.bmp
+**.tif
+**.tiff
+**.heic
+**.JPG
+**.JPEG
+**.PNG
+**.BMP
+**.TIF
+**.TIFF
 *.HEIC
 *.mp4
 *.mov
@@ -60,6 +60,7 @@ VOC/
 *_saved_model/
 *_web_model/
 *_openvino_model/
+**.trt
 darknet53.conv.74
 yolov3-tiny.conv.15
 
@@ -91,7 +92,8 @@ wheels/
 /wandb/
 .installed.cfg
 *.egg
-
+classify/
+imgs/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

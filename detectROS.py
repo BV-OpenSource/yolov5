@@ -33,6 +33,7 @@ from pathlib import Path
 
 import torch
 import torch.backends.cudnn as cudnn
+import time
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -84,6 +85,7 @@ def run(
         half=False,  # use FP16 half-precision inference
         dnn=False,  # use OpenCV DNN for ONNX inference
 ):
+    t0 = time_sync()
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
     is_file = Path(source).suffix[1:] in (IMG_FORMATS + VID_FORMATS)
@@ -105,20 +107,26 @@ def run(
     portMsg = std_msgs.msg.Int32()
 
     if source.lower().startswith('udp://'):
-        startGST = rospy.Publisher("gstreamer/yolo/start", std_msgs.msg.Int32, queue_size=1)
+        startGST = rospy.Publisher("gstreamer/yolo/start", std_msgs.msg.Int32, queue_size=1, latch=True)
         UDPport = urlparse(source).port
         portMsg.data = UDPport
         # Wait for gstreamer package
         rospy.loginfo("Waiting for GStreamer package...")
         try:
-            rospy.wait_for_message("gstreamer/live", std_msgs.msg.Empty, 5)
+            rospy.wait_for_message("gstreamer/live", std_msgs.msg.Empty, 5) # Mudar o tópico para um que exista
         except:
             rospy.logwarn("It was not possible to publish "+str(UDPport)+" as UDP port to GStreamer package.")
         startGST.publish(portMsg)
 
+    # Publishers
+    bboxPub = rospy.Publisher("yoloV5/detected_bbox", DetectionBoundingBox, queue_size=10)
+    stateReadyPub = rospy.Publisher("yoloV5/heartbeat", std_msgs.msg.Empty, queue_size=10)
+
     # Dataloader
     if webcam:
-        view_img = check_imshow()
+        rospy.loginfo("Should it show the feedback? " + str(view_img))
+        view_img = view_img and check_imshow()
+        rospy.loginfo("Image Feedback - " + str(view_img))
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
         bs = len(dataset)  # batch_size
@@ -132,16 +140,18 @@ def run(
     seen, windows, dt = 0, [], [0.0, 0.0, 0.0]
 
     bbox_msg = DetectionBoundingBox()
-
-    # Publishers
-    bboxPub = rospy.Publisher("yoloV5/detected_bbox", DetectionBoundingBox, queue_size=10)
+    stateMsg = std_msgs.msg.Empty()
 
     # Subscribers
     rospy.Subscriber('yoloV5/pause', std_msgs.msg.Empty, cbPause)
     rospy.Subscriber('yoloV5/start', std_msgs.msg.Empty, cbStart)
+    t1 = time_sync()
+    LOGGER.info(f'Setup Time {t1-t0:.3f}s');
 
     for path, im, im0s, vid_cap, s in dataset:
+        stateReadyPub.publish(stateMsg)
         if running == False:
+            time.sleep(1)
             continue
         t1 = time_sync()
         im = torch.from_numpy(im).to(device)
@@ -270,12 +280,12 @@ def run(
 
 def cbStart(msg):
     global running
-    print("Starting detection...")
+    LOGGER.info("Starting detection...")
     running = True
 
 def cbPause(msg):
     global running
-    print("Pausing detection...")
+    LOGGER.info("Pausing detection...")
     running = False
 
 def parse_opt():
